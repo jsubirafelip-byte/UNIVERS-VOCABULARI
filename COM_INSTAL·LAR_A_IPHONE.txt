@@ -1,0 +1,18 @@
+L’UNIVERS INTERACTIU — versió PWA
+
+Aquesta versió es pot afegir a la pantalla d’inici de l’iPhone/iPad i obrir-se
+com una app, sense la barra del navegador.
+
+IMPORTANT:
+iOS només permet instal·lar una PWA des d’una adreça web segura (HTTPS).
+El ZIP no es pot instal·lar directament com una app des de Fitxers.
+
+Passos:
+1. Publica aquesta carpeta en un allotjament HTTPS (per exemple, GitHub Pages).
+2. Obre l’adreça publicada amb Safari a l’iPhone.
+3. Prem Compartir → “Afegir a pantalla d’inici”.
+4. Prem “Afegir”.
+5. Obre “L’Univers” des de la nova icona.
+
+El joc funciona amb tacte: arrossega les lletres de dalt fins a la lletra
+gris corresponent de sota.

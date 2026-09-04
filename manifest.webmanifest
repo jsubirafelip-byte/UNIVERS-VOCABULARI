@@ -1,0 +1,11 @@
+{
+  "name": "L’Univers Interactiu",
+  "short_name": "L’Univers",
+  "lang": "ca",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#efe1f7",
+  "theme_color": "#efe1f7",
+  "icons": []
+}
