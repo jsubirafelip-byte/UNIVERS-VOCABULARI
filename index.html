@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="L’Univers">
+<title>L’Univers – Formem paraules</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="L’Univers">
+<style>
+  * { box-sizing:border-box; -webkit-user-select:none; user-select:none; }
+  html,body { margin:0; width:100%; height:100%; background:#fff; font-family:Arial,sans-serif; overflow:hidden; }
+  #app { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  .game { position:relative; width:min(100vw, 1200px); aspect-ratio:1786/1264; overflow:hidden; }
+  .bg { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+  .cover { position:absolute; left:2%; top:8%; width:96%; height:22%; background:rgb(246,235,255); border-radius:18px; }
+  .tiles, .targets { position:absolute; left:50%; transform:translateX(-50%); width:var(--row-width); display:flex; justify-content:center; gap:1.05%; }
+  .tiles { top:13.7%; height:14.2%; z-index:5; }
+  .targets { top:33.3%; height:14.2%; z-index:3; pointer-events:none; }
+  .tile { flex:1 1 0; min-width:0; max-width:145px; aspect-ratio:1/1; background:white; border:3px solid #111; border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:clamp(28px,4.2vw,62px); font-weight:500; line-height:1; box-shadow:0 2px 3px #0001; touch-action:none; position:relative; }
+  .tile.dragging { position:fixed; z-index:50; width:min(11vw,145px); height:min(11vw,145px); max-width:none; transform:translate(-50%,-50%) rotate(2deg) scale(1.04); box-shadow:0 10px 25px #0003; pointer-events:none; }
+  .tile.done { visibility:hidden; }
+  .target-hit { flex:1 1 0; min-width:0; border-radius:18px; }
+  #message { position:absolute; left:50%; top:49%; transform:translateX(-50%); z-index:20; font-size:clamp(22px,3vw,42px); font-weight:700; color:#333; background:#fff; padding:10px 22px; border-radius:20px; box-shadow:0 5px 20px #0002; opacity:0; transition:.2s; pointer-events:none; }
+  #message.show { opacity:1; }
+  #next { position:absolute; z-index:25; right:3%; bottom:3%; border:0; border-radius:18px; padding:12px 20px; font-size:clamp(18px,2vw,28px); background:#fff; box-shadow:0 3px 12px #0002; display:none; }
+  #counter { position:absolute; z-index:25; left:3%; bottom:3%; background:#fff; border-radius:16px; padding:8px 14px; font-size:clamp(16px,1.8vw,24px); box-shadow:0 3px 12px #0002; }
+  #start { position:absolute; inset:0; z-index:100; background:rgb(246,235,255); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; }
+  #start h1 { margin:0; font-size:clamp(34px,6vw,70px); }
+  #start p { margin:0; font-size:clamp(18px,2.5vw,30px); }
+  #start button { border:0; border-radius:22px; padding:15px 30px; font-size:clamp(20px,2.5vw,32px); background:#fff; box-shadow:0 5px 15px #0002; }
+  @media (orientation:portrait) {
+    #app:after { content:"Per jugar millor, gira l’iPhone o l’iPad en horitzontal ↔"; position:fixed; left:50%; bottom:12px; transform:translateX(-50%); background:#fff; padding:8px 12px; border-radius:12px; box-shadow:0 2px 10px #0002; font-size:14px; z-index:200; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="game">
+    <img id="bg" class="bg" src="assets/slide1.png" alt="">
+    <div class="cover"></div>
+    <div id="tiles" class="tiles"></div>
+    <div id="targets" class="targets"></div>
+    <div id="message"></div>
+    <div id="counter"></div>
+    <button id="next">Següent →</button>
+    <div id="start">
+      <h1>🌙 L’UNIVERS</h1>
+      <p>Forma les paraules arrossegant cada lletra<br>sobre la lletra de color gris.</p>
+      <button>Començar</button>
+    </div>
+  </div>
+</div>
+<script>
+const WORDS = ["LLUNA", "PLANETA", "ECLIPSI", "TERRA", "NIT", "DIA", "SOL", "COMETA", "ESTRELLA", "SATÈL·LIT", "GAL·LÀXIA", "ASTRONAUTA"];
+let level = 0, placed = 0, dragging = null;
+
+const bg = document.getElementById('bg');
+const tiles = document.getElementById('tiles');
+const targets = document.getElementById('targets');
+const msg = document.getElementById('message');
+const next = document.getElementById('next');
+const counter = document.getElementById('counter');
+const start = document.getElementById('start');
+
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function rowWidth(n) {
+  if (n <= 3) return '40%';
+  if (n === 4) return '54%';
+  if (n === 5) return '66%';
+  if (n === 6) return '75%';
+  if (n === 7) return '84%';
+  return '96%';
+}
+function showMessage(text) {
+  msg.textContent = text;
+  msg.classList.add('show');
+  setTimeout(()=>msg.classList.remove('show'), 800);
+}
+function loadLevel() {
+  const word = WORDS[level];
+  placed = 0;
+  bg.src = `assets/slide${level+1}.png`;
+  tiles.innerHTML = '';
+  targets.innerHTML = '';
+  const rw = rowWidth([...word].length);
+  tiles.style.setProperty('--row-width', rw);
+  targets.style.setProperty('--row-width', rw);
+
+  [...word].forEach((letter, index) => {
+    const t = document.createElement('div');
+    t.className='target-hit';
+    t.dataset.index=index;
+    targets.appendChild(t);
+  });
+
+  shuffled([...word]).forEach((letter, index) => {
+    const t = document.createElement('div');
+    t.className='tile';
+    t.textContent=letter;
+    t.dataset.letter=letter;
+    t.dataset.id=crypto.randomUUID ? crypto.randomUUID() : `${level}-${index}-${Math.random()}`;
+    t.addEventListener('pointerdown', startDrag);
+    tiles.appendChild(t);
+  });
+  counter.textContent = `${level+1} / ${WORDS.length}`;
+  next.style.display='none';
+}
+function startDrag(e) {
+  if (dragging) return;
+  const el=e.currentTarget;
+  dragging={el, startParent:el.parentElement, startRect:el.getBoundingClientRect(), pointerId:e.pointerId};
+  el.classList.add('dragging');
+  document.body.appendChild(el);
+  moveDrag(e);
+  el.setPointerCapture?.(e.pointerId);
+}
+function moveDrag(e) {
+  if (!dragging) return;
+  const el=dragging.el;
+  el.style.left=e.clientX+'px';
+  el.style.top=e.clientY+'px';
+}
+function endDrag(e) {
+  if (!dragging) return;
+  const el=dragging.el;
+  const rect=el.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const targetEls=[...targets.children];
+  let hit=-1;
+  targetEls.forEach((z,i)=>{
+    const r=z.getBoundingClientRect();
+    if(cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom) hit=i;
+  });
+  const word=[...WORDS[level]];
+  if(hit>=0 && !targetEls[hit].dataset.filled && el.dataset.letter===word[hit]) {
+    targetEls[hit].dataset.filled='1';
+    el.classList.add('done');
+    el.classList.remove('dragging');
+    el.style='';
+    placed++;
+    showMessage('Molt bé! ⭐');
+    if(placed===word.length) {
+      showMessage('Paraula completada! 🎉');
+      next.style.display='block';
+    }
+  } else {
+    el.classList.remove('dragging');
+    tiles.appendChild(el);
+    el.style='';
+    if(hit>=0) showMessage('Prova una altra lletra 🙂');
+  }
+  dragging=null;
+}
+document.addEventListener('pointermove', moveDrag, {passive:false});
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+start.querySelector('button').addEventListener('click', ()=>{start.style.display='none';loadLevel();});
+next.addEventListener('click', ()=>{
+  if(level<WORDS.length-1){ level++; loadLevel(); }
+  else {
+    level=0; loadLevel();
+    showMessage('Has acabat! 🌟');
+  }
+});
+loadLevel();
+</script>
+</body>
+</html>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+</script>
